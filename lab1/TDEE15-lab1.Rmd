@@ -1,0 +1,309 @@
+---
+title: "Lab1: Graphical Models"
+author: "Viktor Bergkvist, vikbe291"
+date: "2024-09-12"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Description to task 1
+
+Show that multiple runs of the hill-climbing algorithm can return non-equivalent Bayesian
+network (BN) structures. Explain why this happens. Use the Asia dataset which is in-
+cluded in the bnlearn package. To load the data, run data("asia"). Recall from
+the lectures that the concept of non-equivalent BN structures has a precise meaning.
+
+Hint: Check the function hc in the bnlearn package. Note that you can specify
+the initial structure, the number of random restarts, the score, and the equivalent sam-
+ple size (a.k.a imaginary sample size) in the BDeu score. You may want to use these
+options to answer the question. You may also want to use the functions plot, arcs,
+vstructs, cpdag and all.equal
+
+## Solution to task 1
+
+```{r Task 1}
+
+# Load data
+library(bnlearn)
+data("asia")
+
+# Hill-climb
+hc1 <- hc(asia, restart=0, score="bic")
+vs.hc1 <- vstructs(hc1)
+
+# And again but change score (this will generate another graph)
+
+hc2 <- hc(asia, restart=0, score="aic")
+vs.hc2 <- vstructs(hc2)
+
+vs.hc1
+vs.hc2
+
+# Convert to CPDAGs to standardize representation
+hc1 <- cpdag(hc1)
+hc2 <- cpdag(hc2)
+
+# Visualize
+par(mfrow = c(1, 2))
+graphviz.compare(hc1, hc2, main=c("BIC", "AIC"))
+
+all.equal(hc1, hc2)
+
+hc3 <- hc(asia, iss = 100, score = "bde")
+hc4 <- hc(asia, iss = 1, score = "bde")
+graphviz.compare(hc3, hc4, main=c("iss = 100", "iss = 1"))
+cat("BDeu score hc3: ", score(hc3,data=asia,type="bde"),"\n") # Notice, graph can't only be partially directed
+cat("BDeu score hc4: ", score(hc4,data=asia,type="bde"),"\n")
+all.equal(hc3, hc4)
+```
+The hill climb algorithm might create different network structures because it can't guarantee to find the global optimum and might get trapped in a local optima. This is because it is not asymptotically correct under faithfulness. 
+
+The first parameter used to generate different networks was using different options for the score parameter. "all.equal" was used (as well as looking at the networks) to see if they differ (are non-equivalent i.e. they have different adjacencies and unshielded colliders) from eachother and they do. 
+
+Another parameter that can give different network structures when different is imaginary sample size (ISS). When increased the network is bigger with more edges compared to default value 1 and gets a lower BDeu score.
+
+
+## Description to task 2
+
+Learn a BN from 80 % of the Asia dataset. The dataset is included in the
+bnlearn package. To load the data, run data("asia"). Learn both the structure
+and the parameters. Use any learning algorithm and settings that you consider
+appropriate. Use the BN learned to classify the remaining 20 % of the Asia
+dataset in two classes: S = yes and S = no. In other words, compute the
+posterior probability distribution of S for each case and classify it in the
+most likely class. To do so, you have to use exact or approximate inference
+with the help of the bnlearn and gRain packages, i.e. you are not allowed to
+use functions such as predict. Report the confusion matrix, i.e. true/false
+positives/negatives. Compare your results with those of the true Asia BN,
+which can be obtained by running
+dag = model2network("[A][S][T|A][L|S][B|S][D|B:E][E|T:L][X|E]").
+
+## Solution to task 2
+
+```{r Task 2}
+
+library(bnlearn)
+library(gRain)
+data("asia")
+
+# Split data
+set.seed(123)  # For consistency
+split <- sample(1:nrow(asia), size = 0.8 * nrow(asia))
+
+train_data <- asia[split, ]
+test_data <- asia[-split, ]
+
+# Learn the structure of the BN from the training data
+bn_structure <- hc(train_data, score="bic")
+# plot(bn_structure)  # Visualize the learned structure
+
+# Fit the parameters of the BN (Learn the parameters)
+fitted_bn <- bn.fit(bn_structure, data = train_data)
+
+# Convert the fitted bnlearn object to a gRain object
+grain_bn <- as.grain(fitted_bn)
+
+# Initialize vectors to store predictions and true values
+predictions <- c()
+true_values <- test_data$S  # Actual values of S
+
+# Perform inference for each case in the test set
+for (i in 1:nrow(test_data)) {
+  # Set evidence for the test case (all variables except S) (S is 2:nd column)
+  evidence <- setEvidence(grain_bn, nodes = colnames(test_data)[-2], 
+                          states = as.character(unlist(test_data[i, -2])))
+  
+  # Query the posterior distribution of S
+  posterior <- querygrain(evidence, nodes = "S")
+  
+  # Predict the most probable class for S
+  predicted_class <- names(which.max(posterior$S))
+  
+  # Store the predicted class
+  predictions <- c(predictions, predicted_class)
+}
+
+# Create the confusion matrix
+confusion_matrix <- table(True = true_values, Predicted = predictions)
+print("HL")
+print(confusion_matrix)
+
+# True Asia BN structure
+dag <- model2network("[A][S][T|A][L|S][B|S][D|B:E][E|T:L][X|E]")
+
+par(mfrow = c(1, 2))
+graphviz.compare(bn_structure, dag, main=c("HL", "True") )
+
+# Fit the true BN with the training data
+true_fitted_bn <- bn.fit(dag, data = train_data)
+
+# Convert to gRain object
+true_grain_bn <- as.grain(true_fitted_bn)
+
+# Initialize vectors to store predictions for the true BN
+true_bn_predictions <- c()
+
+# Perform inference for the true BN
+for (i in 1:nrow(test_data)) {
+  evidence <- setEvidence(true_grain_bn, nodes = colnames(test_data)[-2], states = as.character(unlist(test_data[i, -2])))
+  posterior <- querygrain(evidence, nodes = "S")
+  predicted_class <- names(which.max(posterior$S))
+  true_bn_predictions <- c(true_bn_predictions, predicted_class)
+}
+
+# Compute the confusion matrix for the true BN
+true_bn_confusion_matrix <- table(True = true_values, Predicted = true_bn_predictions)
+print("True")
+print(true_bn_confusion_matrix)
+```
+The learned graph is close to the true graph, the only difference being one edge between A and T.
+
+## Description to task 3
+
+In the previous exercise, you classified the variable S given observations for all the
+rest of the variables. Now, you are asked to classify S given observations only for the
+so-called Markov blanket of S, i.e. its parents plus its children plus the parents of its
+children minus S itself. Report again the confusion matrix.
+Hint: You may want to use the function mb from the bnlearn package.
+
+## Solution to task 3
+
+```{r Task 3}
+library(bnlearn)
+library(gRain)
+
+data("asia")
+set.seed(123)
+split <- sample(1:nrow(asia), size = 0.8 * nrow(asia))
+train_data <- asia[split, ]
+test_data <- asia[-split, ]
+
+# Learn the structure of the BN from the training data
+bn_structure <- hc(train_data, score="bic")
+# plot(bn_structure)  # Visualize the learned structure
+
+# Fit the parameters of the BN
+fitted_bn <- bn.fit(bn_structure, data = train_data)
+
+# Convert the fitted bnlearn object to a gRain object
+grain_bn <- as.grain(fitted_bn)
+
+# Get the Markov blanket of S
+markov_blanket_S <- mb(bn_structure, node = "S")
+print(markov_blanket_S)  # Check which variables are in the Markov blanket of S
+
+# Initialize vectors to store predictions and true values
+predictions_mb <- c()
+true_values_mb <- test_data$S  # Actual values of S in the test data
+
+# Perform inference for each test instance using only Markov blanket variables
+for (i in 1:nrow(test_data)) {
+  # Set the evidence for the Markov blanket variables, excluding S
+  evidence_mb <- setEvidence(grain_bn, nodes = markov_blanket_S, states =  
+                               as.character(unlist(test_data[i, markov_blanket_S])))
+  
+  # Query the posterior distribution of S given the Markov blanket evidence
+  posterior_mb <- querygrain(evidence_mb, nodes = "S")
+  
+  # Predict the most probable class for S
+  predicted_class_mb <- names(which.max(posterior_mb$S))
+  
+  # Store the predicted class
+  predictions_mb <- c(predictions_mb, predicted_class_mb)
+}
+
+# Create the confusion matrix
+confusion_matrix_mb <- table(True = true_values_mb, Predicted = predictions_mb)
+print(confusion_matrix_mb)
+
+```
+Same results as for task 2.
+
+## Description to task 4
+Repeat the exercise (2) using a naive Bayes classifier, i.e. the predictive variables are
+independent given the class variable. See p. 380 in Bishop’s book or Wikipedia for
+more information on the naive Bayes classifier. Model the naive Bayes classifier as a
+BN. You have to create the BN by hand, i.e. you are not allowed to use the function
+naive.bayes from the bnlearn package.
+Hint: Check http://www.bnlearn.com/examples/dag/ to see how to create a
+BN by hand
+
+## Solution to task 4
+```{r Task 4}
+library(bnlearn)
+library(gRain)
+
+# Define the naive Bayes structure manually
+nodes <- c("A", "S", "T", "L", "B", "D", "E", "X")
+dag <- empty.graph(nodes)
+# Set S as the parent of all other nodes
+arcs <- matrix(c("S", "A",
+                 "S", "T",
+                 "S", "L",
+                 "S", "B",
+                 "S", "D",
+                 "S", "E",
+                 "S", "X"), 
+               ncol = 2, byrow = TRUE,
+               dimnames=list(NULL, c("from", "to")))
+# Add arcs to the network
+arcs(dag) <- arcs
+plot(dag)
+
+# Fit the parameters of the naive Bayes model from training data
+data("asia")
+set.seed(123)
+
+# Split the data (80% training, 20% test)
+split <- sample(1:nrow(asia), size = 0.8 * nrow(asia))
+train_data <- asia[split, ]
+test_data <- asia[-split, ]
+
+# Fit the parameters
+fitted_bn <- bn.fit(dag, data = train_data)
+
+# Convert the fitted BN into a grain object for inference
+grain_bn <- as.grain(fitted_bn)
+
+# Initialize vectors to store predictions and true values
+predictions_nb <- c()
+true_values_nb <- test_data$S
+
+# Perform inference for each test instance
+for (i in 1:nrow(test_data)) {
+  # Set evidence for all variables except S
+  evidence_nb <- setEvidence(grain_bn, 
+                             nodes = colnames(test_data)[-2],
+                             states = as.character(unlist(test_data[i, -2])))
+  
+  # Query the posterior distribution of S given the evidence
+  posterior_nb <- querygrain(evidence_nb, nodes = "S")
+  
+  # Predict the most probable class for S
+  predicted_class_nb <- names(which.max(posterior_nb$S))
+  
+  # Store the predicted class
+  predictions_nb <- c(predictions_nb, predicted_class_nb)
+}
+
+
+# Create the confusion matrix
+confusion_matrix_nb <- table(True = true_values_nb, Predicted = predictions_nb)
+print(confusion_matrix_nb)
+
+
+```
+Not the same confusion matrix this time.
+
+## Description to task 5
+
+Explain why you obtain the same or different results in the exercises (2-4).
+
+## Answer to task 5
+
+The reason for obtaining the same results in task 2 and task 3 is because of how the network is structured. "S" is conditionally independent (?) other nodes given its markov blanket (the blanket alone captures the relationships of S with other nodes). This is why we get the same result.
+
+In task 4, a naive Bayes structure is applied, simplifying the original model by disregarding the complexity of the original BN structure. In this simplified version, the Markov blanket of S consists of all nodes except S itself, which leads to a different predictive outcome compared to the original structure.
