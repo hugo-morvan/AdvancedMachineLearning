@@ -13,24 +13,27 @@ The purpose of the lab is to put in practice some of the concepts covered in the
 
 ## Question 1 
 
-Build a hidden Markov model (HMM) for the scenario described above. Note that the documentation for the initHMM function says that the emissionProbs matrix should be of size [number of states]x[number of states]. This is wrong. It should be of size [number of states]x[number of symbols]. The package works correctly, though. It is just the documentation that is wrong.
+Build a hidden Markov model (HMM) for the scenario described above.
 
 ```{r 1}
 library(HMM)
+
 set.seed(123)
 
 n_states = 10
 n_symbols = 10
 # Transition probability : stay at current state 0.5 or move to the next
-transProbs = matrix(0, n_states, n_states)
+transProbs = matrix(0, n_states, n_states, )
 
 for(i in 1:n_states){
   transProbs[i,i] = 0.5 #Stay
   transProbs[i,(i+n_symbols)%%(n_states)+1] = 0.5 # Move to the next state
   #All the weird indexing is to go around the issues of the 1-index in R
 }
-print("Transition Probs:")
-print(transProbs)
+print("Transition Probabilities Matrix:")
+heatmap(transProbs, Rowv = NA, Colv = NA, revC = T,
+        main = "Transition Probabilities", xlab = "From state", ylab="To state")
+legend(x="right", legend=c("0", "0.5"),fill=c("beige", "darkred"))
 
 # Emission probability : the sensor inaccuracy ?
 emissionProbs = matrix(0, n_states, n_symbols)
@@ -41,8 +44,9 @@ for(i in 1:n_states){
     #All the weird indexing is to go around thes issues of the 1-index in R
   }
 }
-print("Emission Probs:")
-print(emissionProbs)
+print("Emission Probabilities Matrix:")
+heatmap(t(emissionProbs), Rowv = NA, Colv = NA, revC = T,main = "Emission Probabilities", xlab = "True state", ylab="Observed state")
+legend(x="right", legend=c("0", "0.2"),fill=c("beige", "darkred"))
 
 myHMM = initHMM(States = 1:10, Symbols = 1:10, 
                 startProbs = NULL , 
@@ -63,28 +67,36 @@ sim = simHMM(myHMM, 100)
 Discard the hidden states from the sample obtained above. Use the remaining observations to compute the filtered and smoothed probability distributions for each of the 100 time points. Compute also the most probable path.
 
 ```{r 3}
+
+#Discarding the hidden states
 obs = sim$observation
 
 get_probs = function(myHMM, obs){
+  # This function takes in a HMM and observations
+  # And returns the  distribution, the smoothed distribution, and the most probable path
+  
   log_forwards = forward(hmm = myHMM, observation = obs)
   forwards = exp(log_forwards) # alpha(z_t)
-
+  # Normalize on the marginal z_t level (margin = 2)
   filtered = prop.table(forwards, margin = 2)
 
   log_backwards = backward(myHMM, obs)
   backwards = exp(log_backwards) # beta(z_t)
-
+  
   log_alpha_beta = log_forwards+log_backwards
   alpha_beta = exp(log_alpha_beta)
 
+  # Normalize on the marginal z_t level (margin = 2)
   smoothed = prop.table(alpha_beta)
   #sum(smoothed) # =1
-
+  
   most_probable_path = viterbi(myHMM, obs)
 
-  
-  return(list("filtered" = filtered, "smoothed" = smoothed, "most_probable_path" = most_probable_path))
+  return(list("filtered" = filtered, 
+              "smoothed" = smoothed, 
+              "most_probable_path" = most_probable_path))
 }
+
 res = get_probs(myHMM, obs)
 
 ```
@@ -98,21 +110,26 @@ Hint: Note that the function forward in the HMM package returns probabilities in
 
 ```{r 4}
 get_accuracies = function(sim, get_probs_result){
+  # Given a simulation run (sim) and the output from the get_probs() function
+  # Returns the accuracy of the filtered dist., smoothed dist., and most probable path.
   
+  #Filtered distribution accuracy
   filtered_count = table(sim$states == apply(get_probs_result$filtered, 2, which.max))
   filtering_accuracy = filtered_count[2]/sum(filtered_count)
   names(filtering_accuracy) = "Filtering accuracy"
   
+  #Smoothed distribution accuracy
   smoothed_count = table(sim$states == apply(get_probs_result$smoothed, 2, which.max))
   smoothing_accuracy = smoothed_count[2]/sum(smoothed_count)
   names(smoothing_accuracy) = "Smoothing accuracy"
   
+  #Most probable path accuracy
   viterbi_count = table(sim$states == get_probs_result$most_probable_path)
   viterbi_accuracy = viterbi_count[2]/sum(viterbi_count)
   names(viterbi_accuracy) = "Viterbi accuracy"
   
   return(list("filtering_accuracy" = filtering_accuracy, 
-              "smoothing_accuracy"= filtering_accuracy, 
+              "smoothing_accuracy"= smoothing_accuracy, 
               "viterbi_accuracy"= viterbi_accuracy))
 }
 
@@ -137,9 +154,7 @@ print(acc2)
 
 The smoothed distribution should be more accurate than the filtering because it combines information from both the forward and backward probabilities, while the filtering only has the forward probabilities.
 
-The smoothed distribution should also be morea accurate than the most probable path because 
-
-
+The smoothed distribution should also be more accurate than the most probable path because the most probable path has an extra constraint that it has to output a possible path, thus, the smoothed distribution has more flexibility to make predictions, even if the overall path might have inconsistencies. 
 
 ## Question 6:
 
@@ -150,7 +165,8 @@ Hint: You may want to compute the entropy of the filtered distributions with the
 library(entropy)
 
 filt_entropies = apply(res$filtered, 2, entropy.empirical)
-plot(filt_entropies, type='l')
+plot(filt_entropies, type='l', main = "Filtered Distribution Entropy for 100 time steps",
+     xlab = "Time step", ylab="Entropy")
 
 
 # Simulating for 300 time steps:
@@ -158,25 +174,30 @@ sim300 = simHMM(myHMM, 300)
 res300 = get_probs(myHMM, sim300$observation)
 filt300_entropies = apply(res300$filtered, 2, entropy.empirical)
 mean300 = mean(filt300_entropies)
-plot(filt300_entropies, type="l")
+plot(filt300_entropies, type="l", , main = "Filtered Distribution Entropy for 300 time steps",
+     xlab = "Time step", ylab="Entropy")
 abline(a=mean300, b = 0)
 ```
 
-It does not seems like the entropy reduces the later in time, meaning that we do not know better where the robot is over time.
+It does not seems like the entropy reduces the later in time, meaning that we do not know better where the robot is over time. This is probably because the emission probabilities stay constant in time.
 
 ## Question 7:
 
 Consider any of the samples above of length 100. Compute the probabilities of the hidden states for the time step 101.
 
 ```{r 7}
+#Prediction of state 101 = smoothed state 100 * transition probability
 pred101 = prop.table(res$smoothed[,100]%*%transProbs)
-print("state prediction probabilities")
+print("state prediction probabilities:")
 print(pred101)
 
-plot(x = c(1:10),prop.table(res$smoothed[,100]), type = "l", col = "red")
+plot(x = c(1:10),prop.table(res$smoothed[,100]), type = "l", col = "red",
+     , main = "Hidden state t=101 probability", xlab = "TState", ylab="Probability")
 lines(x = c(1:10),pred101, type = "l", col = "blue")
 abline(v = sim$states[100], col="darkred")
-legend("topright", legend=c("true state @ t=100", "smoothed state prob. @ t=100", "state prob @ t = 101"), 
+legend("topright", legend=c("t=100 true state", 
+                            "t=100 smoothed state prob", 
+                            "t=101 state prob."), 
        col=c("darkred", "red", "blue"), lty=c("solid","solid","solid"), cex=0.8)
 
 ```
