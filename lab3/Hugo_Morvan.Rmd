@@ -206,10 +206,10 @@ q_learning <- function(start_state, epsilon = 0.5, alpha = 0.1, gamma = 0.95,
     new_state = transition_model(x, y, action, beta) #execute action
     new_x = new_state[1]
     new_y = new_state[2]
-    reward = reward_map[new_x,new_y]#get reward
+    reward = reward_map[new_x,new_y] #get reward
 
     # Q-table update.
-    temporal_correction = reward + gamma*(max(q_table[new_x,new_y, ])-q_table[x,y,action])
+    temporal_correction = reward + gamma*(max(q_table[new_x,new_y, ]))-q_table[x,y,action]
     
     q_table[x,y,action] <<- q_table[x,y,action] + alpha*temporal_correction
     episode_correction = episode_correction + temporal_correction
@@ -264,7 +264,7 @@ Answer the following questions:
 
   - Do the learned values in the Q-table reflect the fact that there are multiple paths (above and below the negative rewards) to get to the positive reward ? If not, what could be done to make it happen ?
   
-  The Q-table does not reflect the fact that there are multiple paths to get to the positive reward as it can be seen that the values are different. To make it happen, we could increase the exploring of the agent by increasing the epsilon parameter, which is responsible for the probability of acting randomly.
+  The Q-table does not reflect the fact that there are multiple paths to get to the positive reward as it can be seen that the values are different between the top path and the bottom path. To make it happen, we could increase the exploring of the agent by increasing the epsilon parameter, which is responsible for the probability of acting randomly.
   
 ## 3. Environment B. 
 
@@ -332,9 +332,11 @@ for(j in c(0.5,0.75,0.95)){
 
 Effect of epsilon:
 
+Epsilon is responsible for the exploration rate of the agent. If epsilon is small, the agent will prefer following the first good path it founds to reach the goal, and thus leaving a large part of the environment unexplored, as it can be seen on the plots with epsilon = 0.1. The reward is therefore smaller as the path chosen is not optimal. If epsilon is larger, like in the plots with epsilon = 0.5, the agent will explore the environment much more. 
 
 Effect of gamma:
 
+Gamma describes the preference for the agent for present or future rewards. A large gamma gives a preference for future rewards while a small gamma gives a preference for immediate rewards.
 
 
 ## 4. Environment C. 
