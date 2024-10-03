@@ -98,6 +98,8 @@ all.equal(hc1, hc2)
 ```
 
 All three methods yields non-equivalent BN structures, as we can see with the function "all.equal".
+The Hill-Climb algorithm can return non-equivalent networks because it is a heuristic search, thus the results depends on the initial structure and the scoring function used to evaluate the structure during the search. Therefore, it may converge to different local optima, thus returning non-equivalent networks.
+
 
 ## Question 2
 
@@ -148,7 +150,7 @@ for (i in 1:nrow(test_data)) {
 }
 
 # Create the confusion matrix
-confusion_matrix <- table(True = true_values, Predicted = predictions)
+confusion_matrix <- table(Predicted = predictions, True = true_values)
 print("HL")
 print(confusion_matrix)
 
@@ -176,7 +178,7 @@ for (i in 1:nrow(test_data)) {
 }
 
 # Compute the confusion matrix for the true BN
-true_bn_confusion_matrix <- table(True = true_values, Predicted = true_bn_predictions)
+true_bn_confusion_matrix <- table(Predicted = true_bn_predictions,True = true_values)
 print("True")
 print(true_bn_confusion_matrix)
 ```
@@ -193,8 +195,8 @@ Hint: You may want to use the function mb from the bnlearn package.
 ```{r 3}
 
 n = nrow(asia)
-train = asia[1:round(0.8*n),]
-test = asia[(round(0.8*n)+1):n,]
+train = train_data
+test = test_data
 
 #Learn the Structure
 g = hc(train)
@@ -232,12 +234,9 @@ print(confmat$overall[1])
 Repeat the exercise (2) using a naive Bayes classifier, i.e. the predictive variables are independent given the class variable. See p. 380 in Bishop’s book or Wikipedia for more information on the naive Bayes classifier. Model the naive Bayes classifier as a BN. You have to create the BN by hand, i.e. you are not allowed to use the function naive.bayes from the bnlearn package.Hint: Check http://www.bnlearn.com/examples/dag/ to see how to create a BN by hand.
 
 ```{r 4}
-# Calculate cutoff point
-cutoff <- round(nrow(asia) * 0.80)
-
 # Split
-training_data <- asia[1:cutoff, ]
-test_data <- asia[(cutoff + 1):nrow(asia), ]
+training_data <- train_data
+
 
 # Create Bayesian Network
 specific_letters <- c("A", "S", "T", "L", "B", "E", "X", "D")
@@ -258,56 +257,24 @@ naive_bayes_graph <- empty_graph # Since graph is no longer empty
 
 # Learn parameters
 naive_bayes_model <- bn.fit(naive_bayes_graph, training_data)
+naive_bayes_model = as.grain(naive_bayes_model)
+naive_bayes_model = compile(naive_bayes_model)
 
-# Used variables in confusion matrix
-true_pos <- 0
-false_pos <- 0
-true_neg <- 0
-false_neg <- 0
+#Classify the remaining 20% of the Asia dataset
+preds = rep(NaN, dim(test)[1])
 
-# Calculate conditional probabilities
-for (row in 1:nrow(test_data)){
-  
-  # Get the evidence
-  A_val <- as.vector(test_data[row, "A"])
-  T_val <- as.vector(test_data[row, "T"])
-  L_val <- as.vector(test_data[row, "L"])
-  B_val <- as.vector(test_data[row, "B"])
-  E_val <- as.vector(test_data[row, "E"])
-  X_val <- as.vector(test_data[row, "X"])
-  D_val <- as.vector(test_data[row, "D"])
-  
-  # Calculate conditional probability for learned structure
-  temp_cond_calc <- cpquery(naive_bayes_model, event = (S == "yes"), 
-                            evidence = (A == A_val & T == T_val & L == L_val & 
-                                          B == B_val & E == E_val & X == X_val & D == D_val))
-  
-  # Determine if it is true positive, false positive, 
-  #                    true negative or false negative
-  if (temp_cond_calc >= 0.5){
-    if (test_data[row, "S"] == "yes"){
-      # Is a true positive
-      true_pos <- true_pos + 1
-    }
-    else{
-      false_pos <- false_pos + 1
-    }
-  }
-  else{
-    if (test_data[row, "S"] == "yes"){
-      # False negative
-      false_neg <- false_neg + 1
-    }
-    else{
-      true_neg <- true_neg + 1
-    }
-  }
+for(i in 1:dim(test)[1]){
+  nodes = c("A","T","L","B","D","E","X")
+  states = as.vector(unlist(c(test[i,nodes])))
+  evidences = setEvidence(naive_bayes_model, nodes, states)
+  prob = querygrain(evidences, nodes = "S")
+  preds[i] = names(which.max(c(prob$S[1],prob$S[2])))
 }
-
-cat("TP: ", true_pos, "\n")
-cat("FP: ", false_pos, "\n")
-cat("FN: ", false_neg, "\n")
-cat("TN: ", true_neg, "\n")
+#Report the confusion matrix
+preds = as.factor(preds)
+confmat = confusionMatrix(preds, test$S)
+print(confmat$table)
+print(confmat$overall[1])
 ```
 
 ## Question 5

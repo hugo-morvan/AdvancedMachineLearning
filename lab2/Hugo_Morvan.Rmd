@@ -32,10 +32,10 @@ for(i in 1:n_states){
 }
 print("Transition Probabilities Matrix:")
 heatmap(transProbs, Rowv = NA, Colv = NA, revC = T,
-        main = "Transition Probabilities", xlab = "From state", ylab="To state")
+        main = "Transition Probabilities")
 legend(x="right", legend=c("0", "0.5"),fill=c("beige", "darkred"))
 
-# Emission probability : the sensor inaccuracy ?
+# Emission probability : the sensor inaccuracy
 emissionProbs = matrix(0, n_states, n_symbols)
 
 for(i in 1:n_states){
@@ -87,7 +87,7 @@ get_probs = function(myHMM, obs){
   alpha_beta = exp(log_alpha_beta)
 
   # Normalize on the marginal z_t level (margin = 2)
-  smoothed = prop.table(alpha_beta)
+  smoothed = prop.table(alpha_beta, margin = 2)
   #sum(smoothed) # =1
   
   most_probable_path = viterbi(myHMM, obs)
@@ -105,8 +105,6 @@ res = get_probs(myHMM, obs)
 ## Question 4:
 
 Compute the accuracy of the filtered and smoothed probability distributions, and of the most probable path. That is, compute the percentage of the true hidden states that are guessed by each method.
-
-Hint: Note that the function forward in the HMM package returns probabilities in log scale. You may need to use the functions exp and prop.table in order to obtain a normalized probability distribution. You may also want to use the functions apply and which.max to find out the most probable states. Finally, recall that you can compare two vectors A and B elementwise as A==B, and that the function table will count the number of times that the different elements in a vector occur in the vector.
 
 ```{r 4}
 get_accuracies = function(sim, get_probs_result){
@@ -191,14 +189,14 @@ pred101 = prop.table(res$smoothed[,100]%*%transProbs)
 print("state prediction probabilities:")
 print(pred101)
 
-plot(x = c(1:10),prop.table(res$smoothed[,100]), type = "l", col = "red",
-     , main = "Hidden state t=101 probability", xlab = "TState", ylab="Probability")
-lines(x = c(1:10),pred101, type = "l", col = "blue")
+plot(x = c(1:10)-0.05,prop.table(res$smoothed[,100]), type = "h", col = "red",
+     , main = "Hidden state t=101 probability", xlab = "State", ylab="Probability")
+lines(x = c(1:10)+0.05,pred101, type = "h", col = "blue")
 abline(v = sim$states[100], col="darkred")
 legend("topright", legend=c("t=100 true state", 
                             "t=100 smoothed state prob", 
                             "t=101 state prob."), 
-       col=c("darkred", "red", "blue"), lty=c("solid","solid","solid"), cex=0.8)
+       col=c("darkred", "red", "blue"), lty=c("solid","solid","solid"), cex=0.7)
 
 ```
 
