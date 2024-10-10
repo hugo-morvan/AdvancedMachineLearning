@@ -54,6 +54,7 @@ cat("Graph B BDeu score:",score_b,"\n")
 ```
 
 By changing the parameter iss (imaginary sample size), we get graphs that are not equivalent. The BDeu score is also different for the two graphs.
+The Hill-Climb algorithm can return non-equivalent networks because it is a heuristic search, thus the results depends on the initial structure and the scoring function used to evaluate the structure during the search. Therefore, it may converge to different local optima, thus returning non-equivalent networks.
 
 # 2
 

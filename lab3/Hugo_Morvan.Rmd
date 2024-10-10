@@ -260,7 +260,7 @@ Answer the following questions:
 
   - Is the final greedy policy (after 10000 episodes) optimal for all states, i.e. not only for the initial state ? Why / Why not ?
 
-  The final greedy policy after 10000 episodes is not optimal as it can be seen that the states below the negative rewards have not been optimized and some cells on the outside of the environment are pointing outwards.
+  The final greedy policy after 10000 episodes is not optimal as it can be seen that the states below the negative rewards have not been optimized and some cells on the outside of the environment are pointing outwards. This is because the agent has not had time to explore fully the environment and come up with the optimal policy for all the states.
 
   - Do the learned values in the Q-table reflect the fact that there are multiple paths (above and below the negative rewards) to get to the positive reward ? If not, what could be done to make it happen ?
   
@@ -365,7 +365,7 @@ for(j in c(0,0.2,0.4,0.66)){
   vis_environment(i, gamma = 0.6, beta = j)
 }
 ```
-The beta parameter is slipping factor, i.e. how often the agent will take an accidental side step. In this environment, the beta parameter will affect how much the agent is willing to be close to the -1 rewards. With beta=0, the agent does slip and therefore does not care about being close to the -1 rewards and therefore goes alongside it to reach the 10 reward. With higher beta values, the agent tries to avoid getting close to the -1 rewards as there is a chance to accidentally walk into it, therefore the optimal policy is to take the long route by the top of the environment. The higher the beta, the more arrows are pointing perpendicular to the optimal direction, meaning that the agent knows that it will eventually take an accidental side step towards the optimal direction.
+The beta parameter is slipping factor, i.e. how often the agent will take an accidental side step. In this environment, the beta parameter will affect how much the agent is willing to be close to the -1 rewards. With beta=0, the agent does not slip and therefore does not care about being close to the -1 rewards and therefore goes alongside it to reach the 10 reward. With higher beta values, the agent tries to avoid getting close to the -1 rewards as there is a chance to accidentally walk into it, therefore the optimal policy is to take the long route by the top of the environment. The higher the beta, the more arrows are pointing perpendicular to the optimal direction, meaning that the agent knows that it will eventually take an accidental side step towards the optimal direction.
 
 ## 5. REINFORCE. 
 
@@ -621,7 +621,7 @@ Finally, answer the following questions:
 
 - Has the agent learned a good policy? Why / Why not ?
 
-It seems like the agent has learned a good policy as no matter where the goal is appearing, all the arrow are pointing towards it.
+It seems like the agent has learned a good policy as no matter where the goal is appearing, all the arrow are pointing towards it. This is because it has been trained on a good variation of goal positions, spreading the entire environment, thus it is able to learn that the goal position is where the agent should be going to.
 
 - Could you have used the Q-learning algorithm to solve this task ?
 
@@ -653,8 +653,8 @@ In this task, the goals for training are all from the top row of the grid. The v
 
 - Has the agent learned a good policy? Why / Why not ?
 
-The agent has not learned a good policy. This is because the agent only sees goals in the first two rows of the environment during training, it is therefore not able to adapt to goals appearing in the lower two rows.
+The agent has not learned a good policy. This is because the agent only sees goals in the first row of the environment during training, it is therefore not able to adapt to goals appearing in the lower two rows. It could be because the agent only learned to go up and from side to side to reach the goal, and is therefore not able to adapt to the goal behind at the bottom.
 
 - If the results obtained for environments D and E differ, explain why
 
-The results obtained in environments D and E differ because the agent is not trained in the same conditions. Hence, the generalization capabilities are different.
+The results obtained in environments D and E differ because the agent is not trained in the same conditions. Hence, the generalization capabilities and behavior learned by the agent are different. It could be that in environment E, the y coordinate has no weight in the decision of the agent, while in environment D, it has some weight.
