@@ -4,11 +4,11 @@ author: "Hugo Morvan (hugmo418)"
 date: "`r Sys.Date()`"
 output: pdf_document
 editor_options: 
-  chunk_output_type: console
+  chunk_output_type: inline
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = T, message = F, warning = F, fig.width = 5, fig.height = 3, fig.align = "center", cache = T,out.width="100%", out.height="100%")
+knitr::opts_chunk$set(echo = T, message = F, warning = F, fig.width = 5, fig.height = 3, fig.align = "center", cache = T, out.width="100%", out.height="100%")
 
 ```
 
@@ -36,9 +36,14 @@ Write your own code for simulating from the posterior distribution of f using th
 
 -   `k`: Covariance function or kernel. That is, the kernel should be a separate function (see the file `GaussianProcesses.R` on the course web page).
 
-```{r 1.1}
+```{r libraries}
 library(kernlab)
+library(AtmRay)
+#library(caret)
+```
 
+
+```{r 1.1}
 posteriorGP <- function(X, y, Xstar, sigmaNoise, k){
   #Algorithm 2.1 on page 19 of Rasmussen and Willams’ book.
   
@@ -331,7 +336,6 @@ You can read about this dataset here. Choose 1000 observations as training data 
 
 ```{r 3.0.2}
 set.seed(111); SelectTraining <- sample(1:dim(data)[1], size = 1000, replace = FALSE)
-
 ```
 
 ### 3.1)
@@ -339,10 +343,7 @@ set.seed(111); SelectTraining <- sample(1:dim(data)[1], size = 1000, replace = F
 Use the R package `kernlab` to fit a Gaussian process classification model for fraud on the training data. Use the default kernel and hyperparameters. Start using only the covariates `varWave` and `skewWave` in the model. Plot contours of the prediction probabilities over a suitable grid of values for `varWave` and `skewWave`. Overlay the training data for fraud = 1 (as blue points) and fraud = 0 (as red points). You can reuse code from the file `KernLabDemo.R` available on the course website. Compute the confusion matrix for the classifier and its accuracy.
 
 ```{r 3.1}
-library(AtmRay)
-library(scales)
-
-GPfitfraud <- gausspr(fraud ~  varWave + skewWave , data=data[SelectTraining,])
+GPfitfraud <- gausspr(fraud ~  varWave + skewWave , data[SelectTraining,])
 
 # class probabilities 
 probPreds <- predict(GPfitfraud, data[SelectTraining,1:2], type="probabilities")
@@ -358,14 +359,14 @@ probPreds <- predict(GPfitfraud, gridPoints, type="probabilities")
 # Plotting for Prob(fraud)
 contour(x1,x2,matrix(probPreds[,2],100,byrow = TRUE), 20, xlab = "varWave", ylab = "skewWave", 
         main = 'Prob(Fraud = 1) - Fraud = 1 is blue')
-points(data[data[,5]==0,1],data[data[,5]=='0',2],col=alpha("red",0.4), pch=20) # Not fraud
-points(data[data[,5]==1,1],data[data[,5]=='1',2],col=alpha("blue",0.4), pch=20) #Fraud
+points(data[data[,5]==0,1],data[data[,5]=='0',2],col="red", pch=20) # Not fraud
+points(data[data[,5]==1,1],data[data[,5]=='1',2],col="blue", pch=20) #Fraud
 
 # Plotting for Prob(fraud)
 contour(x1,x2,matrix(probPreds[,1],100,byrow = TRUE), 20, xlab = "varWave", ylab = "skewWave", 
         main = 'Prob(Fraud = 0) - Fraud = 0 is red')
-points(data[data[,5]==0,1],data[data[,5]=='0',2],col=alpha("red",0.4), pch=20) # Not fraud
-points(data[data[,5]==1,1],data[data[,5]=='1',2],col=alpha("blue",0.4), pch=20) #Fraud
+points(data[data[,5]==0,1],data[data[,5]=='0',2],col="red", pch=20) # Not fraud
+points(data[data[,5]==1,1],data[data[,5]=='1',2],col="blue", pch=20) #Fraud
 
 ```
 
@@ -374,14 +375,16 @@ points(data[data[,5]==1,1],data[data[,5]=='1',2],col=alpha("blue",0.4), pch=20) 
 Using the estimated model from (1), make predictions for the test set. Compute the accuracy.
 
 ```{r 3.2}
-library(caret)
+
 idx = 1:dim(data)[1]
 test_idx = idx[which(!idx %in% SelectTraining)]
 probPredstest <- predict(GPfitfraud, data[test_idx,1:2], type="probabilities")
 predsTest = as.factor(colnames(probPredstest)[apply(probPredstest,1,which.max)])
-cm = confusionMatrix(predsTest, data[test_idx,5])
-print(cm$overall[1])
-print(cm$table)
+cm = table(predsTest, data[test_idx,5])
+print("Confusion Matrix")
+print(cm)
+print("Accuracy")
+print(sum(diag(cm))/sum(cm))
 ```
 
 ### 3.3)
@@ -390,9 +393,11 @@ Train a model using all four covariates. Make predictions on the test set and co
 
 ```{r 3.3}
 GPfitfraud <- gausspr(fraud ~ varWave + skewWave + kurtWave + entropyWave, data=data[SelectTraining,])
-probPredstest <- predict(GPfitfraud, data[test_idx,1:2], type="probabilities")
+probPredstest <- predict(GPfitfraud, data[test_idx,1:4], type="probabilities")
 predsTest = as.factor(colnames(probPredstest)[apply(probPredstest,1,which.max)])
-cm = confusionMatrix(predsTest, data[test_idx,5])
-print(cm$overall[1])
-print(cm$table)
+cm = table(predsTest, data[test_idx,5])
+print("Confusion Matrix")
+print(cm)
+print("Accuracy")
+print(sum(diag(cm))/sum(cm))
 ```
