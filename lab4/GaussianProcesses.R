@@ -35,6 +35,7 @@ sigmaF <- 1
 l <- 1
 nSim <- 1
 fSim <- SimGP(m=MeanFunc, K=SquaredExpKernel, x=xGrid, nSim, sigmaF, l)
+
 plot(xGrid, fSim[1,], type="p", ylim = c(-3,3))
 if(nSim>1){
   for (i in 2:nSim) {
